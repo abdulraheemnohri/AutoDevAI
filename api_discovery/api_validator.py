@@ -4,7 +4,7 @@ import sqlite3
 from backend.config import DATABASE_PATH, API_TIMEOUT
 
 def validate_endpoint(endpoint):
-    """Validate an API endpoint by sending a small request."""
+    """Validate an API endpoint by sending a small, structured request."""
     print(f"🧪 Validating endpoint: {endpoint}")
     
     # Simple test payload (OpenAI-compatible)
@@ -20,8 +20,14 @@ def validate_endpoint(endpoint):
         latency = time.time() - start_time
         
         if response.status_code == 200:
-            print(f"✅ Endpoint {endpoint} is working! Latency: {latency:.2f}s")
-            return True, latency
+            result = response.json()
+            # Verify basic OpenAI-like structure
+            if 'choices' in result and len(result['choices']) > 0:
+                print(f"✅ Endpoint {endpoint} is working! Latency: {latency:.2f}s")
+                return True, latency
+            else:
+                print(f"⚠️ Endpoint {endpoint} returned successful code but unexpected JSON structure: {result}")
+                return False, latency
         else:
             print(f"❌ Endpoint {endpoint} returned status code: {response.status_code}")
             return False, latency

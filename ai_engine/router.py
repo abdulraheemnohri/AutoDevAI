@@ -1,12 +1,16 @@
 import sqlite3
 import requests
+import time
 from backend.config import DATABASE_PATH, API_TIMEOUT
 from providers.groq_provider import generate_groq
 from providers.openrouter_provider import generate_openrouter
+from ai_engine.provider_manager import ProviderManager
 
 def generate(prompt):
     """Route the prompt to the best available AI provider."""
     
+    manager = ProviderManager(DATABASE_PATH)
+
     # 1. Try hardcoded providers first (if keys exist)
     providers = [
         ("Groq", generate_groq),
@@ -16,35 +20,48 @@ def generate(prompt):
     for name, func in providers:
         try:
             print(f"🤖 Attempting generation with {name}...")
-            return func(prompt)
+            start_time = time.time()
+            response = func(prompt)
+            latency = time.time() - start_time
+            print(f"✅ {name} succeeded in {latency:.2f}s.")
+            return response
         except Exception as e:
             print(f"⚠️ {name} failed: {e}")
             continue
 
-    # 2. Try discovered APIs from database
+    # 2. Try discovered APIs from database using ProviderManager
     print("🔍 No hardcoded providers available. Searching database for discovered APIs...")
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        c = conn.cursor()
-        c.execute("SELECT endpoint, provider FROM apis WHERE status='active' ORDER BY success_rate DESC, latency ASC")
-        discovered_apis = c.fetchall()
-        conn.close()
+    active_providers = manager.get_active_providers()
 
-        for endpoint, provider_name in discovered_apis:
-            try:
-                print(f"🤖 Attempting generation with discovered provider: {provider_name} ({endpoint})...")
-                # Assume OpenAI-compatible for discovered endpoints
-                response = requests.post(
-                    endpoint,
-                    json={"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}]},
-                    timeout=API_TIMEOUT
-                )
-                response.raise_for_status()
-                return response.json()['choices'][0]['message']['content']
-            except Exception as e:
-                print(f"⚠️ Discovered API {endpoint} failed: {e}")
-                continue
-    except Exception as e:
-        print(f"❌ Database error: {e}")
+    for provider in active_providers:
+        endpoint = provider['endpoint']
+        provider_name = provider['name']
+        provider_id = provider['id']
+
+        try:
+            print(f"🤖 Attempting generation with discovered provider: {provider_name} ({endpoint})...")
+            start_time = time.time()
+            # Assume OpenAI-compatible for discovered endpoints
+            response = requests.post(
+                endpoint,
+                json={"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}]},
+                timeout=API_TIMEOUT
+            )
+            latency = time.time() - start_time
+
+            if response.status_code == 200:
+                content = response.json()['choices'][0]['message']['content']
+                manager.update_provider_stats(provider_id, success=True, latency=latency)
+                print(f"✅ Discovered API {endpoint} succeeded in {latency:.2f}s.")
+                return content
+            else:
+                print(f"⚠️ Discovered API {endpoint} returned status {response.status_code}")
+                manager.update_provider_stats(provider_id, success=False, latency=latency)
+                if response.status_code in [401, 403, 404]:
+                    manager.deactivate_provider(provider_id)
+        except Exception as e:
+            print(f"⚠️ Discovered API {endpoint} failed: {e}")
+            manager.update_provider_stats(provider_id, success=False, latency=API_TIMEOUT)
+            continue
 
     return "❌ Error: No AI provider available. Please check your API keys or wait for discovery to find new endpoints."
