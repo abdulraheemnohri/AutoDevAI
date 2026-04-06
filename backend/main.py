@@ -2,7 +2,8 @@ import sys
 import os
 
 # Add project root to sys.path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
 
 from github_bot.webhook_handler import process_events
 from api_discovery.api_searcher import discover_apis
@@ -11,17 +12,19 @@ from backend.scheduler import start_scheduler
 
 def run_assistant():
     """Main entry point for the AI Dev Assistant."""
-    print("🚀 Starting Self-Expanding AI Dev Assistant...")
+    print("🚀 Starting Self-Expanding AutoDevAI Assistant...")
 
     # 1. Initialize Database
     init_db()
 
     # 2. Discover APIs (Initial run)
+    # Note: This might take time, in a production CI/CD environment,
+    # we might want to skip this or run it as a separate background task.
     print("🔍 Running initial API discovery...")
     discover_apis()
 
-    # 3. Start Background Scheduler (Optional for long-running processes)
-    # start_scheduler()
+    # 3. Start Background Scheduler (For long-running processes)
+    start_scheduler()
 
     # 4. Process GitHub Events
     print("🤖 Processing GitHub events...")
