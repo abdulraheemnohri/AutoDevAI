@@ -24,3 +24,6 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 HF_TOKEN = os.getenv("HF_TOKEN")
 DEEPINFRA_API_KEY = os.getenv("DEEPINFRA_API_KEY")
+
+# Jules API Key
+JULES_API_KEY = os.getenv("JULES_API_KEY")

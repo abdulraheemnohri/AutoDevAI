@@ -1,9 +1,10 @@
 import sqlite3
 import requests
 import time
-from backend.config import DATABASE_PATH, API_TIMEOUT
+from backend.config import DATABASE_PATH, API_TIMEOUT, JULES_API_KEY
 from providers.groq_provider import generate_groq
 from providers.openrouter_provider import generate_openrouter
+from providers.jules_provider import generate_jules
 from ai_engine.provider_manager import ProviderManager
 
 def generate(prompt):
@@ -13,11 +14,15 @@ def generate(prompt):
 
     # 1. Try hardcoded providers first (if keys exist)
     providers = [
-        ("Groq", generate_groq),
-        ("OpenRouter", generate_openrouter)
+        ("Jules", generate_jules, JULES_API_KEY),
+        ("Groq", generate_groq, True), # Replace True with specific key check if needed
+        ("OpenRouter", generate_openrouter, True)
     ]
 
-    for name, func in providers:
+    for name, func, key_exists in providers:
+        if not key_exists:
+            continue
+
         try:
             print(f"🤖 Attempting generation with {name}...")
             start_time = time.time()
