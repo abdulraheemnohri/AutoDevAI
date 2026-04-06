@@ -1,22 +1,50 @@
+import re
 from ai_engine.router import generate
-from code_analysis.analyzer import analyze_python_file
+from ai_engine.prompt_builder import build_prompt
 
 def review_pull_request(pr_diff):
     """Reviews a pull request using AI and code analysis."""
-    # This is a simplified example. In a real scenario, you'd parse the diff,
-    # analyze changed files, and provide more targeted feedback.
     
-    ai_review = generate(f"Perform a code review on the following changes: {pr_diff}")
+    # 1. Parse the diff to extract changed files and content
+    files = parse_diff(pr_diff)
     
-    # Placeholder for actual file analysis from diff
-    # For now, let's assume we can get the file content for analysis
-    # file_content = get_file_content_from_diff(pr_diff)
-    # static_analysis_issues = analyze_python_file(file_content)
+    # 2. Build a summary for AI review
+    diff_summary = ""
+    for filename, content in files.items():
+        diff_summary += f"File: {filename}\nContent:\n{content}\n\n"
+
+    # 3. Request AI review using the prompt builder
+    prompt = build_prompt("review", diff_summary)
+    ai_review = generate(prompt)
+
+    response = f"### 🤖 AI Code Review:\n\n{ai_review}\n\n"
     
-    response = f"AI Code Review:\n\n{ai_review}"
-    # if static_analysis_issues:
-    #     response += "\n\nStatic Analysis Issues:\n"
-    #     for issue in static_analysis_issues:
-    #         response += f"- {issue}\n"
-            
     return response
+
+def parse_diff(pr_diff):
+    """Simple diff parser to extract changed files and their approximate content."""
+    files = {}
+    current_file = None
+    current_content = []
+
+    for line in pr_diff.splitlines():
+        # Match 'diff --git a/file1 b/file2'
+        match = re.match(r'^diff --git a/(.+) b/(.+)', line)
+        if match:
+            if current_file:
+                files[current_file] = "\n".join(current_content)
+            current_file = match.group(2)
+            current_content = []
+            continue
+
+        # Extract lines starting with '+' (additions) or ' ' (context)
+        # Skip '+++' or '---' lines
+        if line.startswith('+++') or line.startswith('---'):
+            continue
+        if line.startswith('+') or line.startswith(' '):
+            current_content.append(line[1:])
+
+    if current_file:
+        files[current_file] = "\n".join(current_content)
+
+    return files

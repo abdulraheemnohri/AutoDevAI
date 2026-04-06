@@ -6,17 +6,16 @@ def analyze_python_file(file_path):
     print(f"🔬 Analyzing Python file: {file_path}")
     
     if not os.path.exists(file_path):
-        return f"Error: File {file_path} not found."
+        return [f"Error: File {file_path} not found."]
 
     with open(file_path, "r") as f:
         try:
             tree = ast.parse(f.read())
         except SyntaxError as e:
-            return f"Syntax error in {file_path}: {e}"
+            return [f"Syntax error in {file_path}: {e}"]
 
     issues = []
     
-    # Simple AST-based checks
     for node in ast.walk(tree):
         # Check for bare 'except:'
         if isinstance(node, ast.ExceptHandler) and node.type is None:
@@ -29,6 +28,17 @@ def analyze_python_file(file_path):
         # Check for 'print()' (suggest logging)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'print':
             issues.append(f"Line {node.lineno}: 'print()' used. Consider using a logger.")
+
+        # Check for function complexity (too many arguments)
+        if isinstance(node, ast.FunctionDef):
+            if len(node.args.args) > 5:
+                issues.append(f"Line {node.lineno}: Function '{node.name}' has too many arguments ({len(node.args.args)}). Consider refactoring.")
+
+        # Check for overly complex functions (rough estimation by node count)
+        if isinstance(node, ast.FunctionDef):
+            node_count = sum(1 for _ in ast.walk(node))
+            if node_count > 100:
+                issues.append(f"Line {node.lineno}: Function '{node.name}' is too complex (node count: {node_count}). Consider splitting it.")
 
     return issues
 

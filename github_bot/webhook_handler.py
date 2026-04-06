@@ -1,8 +1,10 @@
 import os
 import json
+import requests
 from github_bot.command_parser import parse_command
 from ai_engine.router import generate
-from code_analysis.analyzer import analyze_python_file
+from ai_engine.prompt_builder import build_prompt
+from backend.config import GITHUB_TOKEN
 
 def process_events():
     """Process GitHub events from environment variables (GitHub Actions)."""
@@ -17,32 +19,48 @@ def process_events():
     # Check for issue_comment event
     if "comment" in event_data:
         comment_body = event_data["comment"]["body"]
+        comment_id = event_data["comment"]["id"]
+        issue_url = event_data["issue"]["url"]
+
         command, args = parse_command(comment_body)
         
         if command:
             print(f"🤖 AI Command detected: {command} with args: {args}")
-            response = handle_command(command, args, event_data)
-            print(f"🤖 AI Response: {response}")
-            # In a real scenario, we would post this response back to GitHub using the API
-            # For now, we'll just print it.
+
+            # Use build_prompt to create a structured prompt
+            prompt = build_prompt(command, args)
+            response_text = generate(prompt)
+
+            print(f"🤖 AI Response: {response_text}")
+
+            # Post the response back to GitHub
+            post_comment(issue_url, response_text)
     else:
         print("ℹ️ No AI command detected in GitHub event.")
 
+def post_comment(issue_url, message):
+    """Post a comment back to a GitHub issue or PR."""
+    if not GITHUB_TOKEN:
+        print("⚠️ GITHUB_TOKEN not found. Cannot post comment.")
+        return
+
+    url = f"{issue_url}/comments"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    data = {"body": message}
+
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        print(f"✅ Comment posted successfully.")
+    except Exception as e:
+        print(f"❌ Error posting comment: {e}")
+
 def handle_command(command, args, event_data):
-    """Handle specific AI commands."""
-    if command == "review":
-        # In a real scenario, we'd fetch the code from the PR or file
-        # For now, we'll just use a placeholder
-        return generate(f"Review this code and find bugs: {args or 'No code provided'}")
-    elif command == "explain":
-        return generate(f"Explain this code: {args or 'No code provided'}")
-    elif command == "fix":
-        return generate(f"Suggest a fix for this code: {args or 'No code provided'}")
-    elif command == "summarize":
-        return generate(f"Summarize this issue or PR: {args or 'No content provided'}")
-    elif command == "optimize":
-        return generate(f"Optimize this code for performance: {args or 'No code provided'}")
-    elif command == "document":
-        return generate(f"Auto-generate documentation for this code: {args or 'No code provided'}")
-    
-    return "Unknown command."
+    """Handle specific AI commands (Deprecated in favor of build_prompt and generate directly)."""
+    # This function is kept for backward compatibility if needed,
+    # but the logic is now in process_events using build_prompt and generate.
+    prompt = build_prompt(command, args)
+    return generate(prompt)
