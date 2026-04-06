@@ -1,0 +1,5 @@
+name: "AutoDevAI"
+description: "Autonomous AI-powered GitHub Dev Assistant with Self-Learning and Public API Discovery"
+runs:
+  using: "docker"
+  image: "Dockerfile"

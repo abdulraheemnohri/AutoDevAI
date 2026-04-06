@@ -1,0 +1,7 @@
+fastapi
+requests
+playwright
+beautifulsoup4
+aiohttp
+sqlalchemy
+python-dotenv
