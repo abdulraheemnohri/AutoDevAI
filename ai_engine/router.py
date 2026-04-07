@@ -5,18 +5,27 @@ from backend.config import DATABASE_PATH, API_TIMEOUT, JULES_API_KEY
 from providers.groq_provider import generate_groq
 from providers.openrouter_provider import generate_openrouter
 from providers.jules_provider import generate_jules
+from providers.local_llm_provider import generate_local_llm
 from ai_engine.provider_manager import ProviderManager
+from ai_engine.agents import get_agent_for_command
 
-def generate(prompt):
-    """Route the prompt to the best available AI provider."""
+def generate(prompt, command=None):
+    """Route the prompt to the best available AI provider with agent context."""
     
     manager = ProviderManager(DATABASE_PATH)
 
-    # 1. Try hardcoded providers first (if keys exist)
+    # 1. Add Agent Context if a command is provided
+    if command:
+        agent = get_agent_for_command(command)
+        agent_header = agent.get_prompt_header()
+        prompt = f"{agent_header}\n\nUser Task:\n{prompt}"
+
+    # 2. Try hardcoded providers first (if keys exist)
     providers = [
         ("Jules", generate_jules, JULES_API_KEY),
-        ("Groq", generate_groq, True), # Replace True with specific key check if needed
-        ("OpenRouter", generate_openrouter, True)
+        ("Groq", generate_groq, True),
+        ("OpenRouter", generate_openrouter, True),
+        ("Local LLM (Ollama)", generate_local_llm, True) # Assumes running if configured
     ]
 
     for name, func, key_exists in providers:
@@ -34,7 +43,7 @@ def generate(prompt):
             print(f"⚠️ {name} failed: {e}")
             continue
 
-    # 2. Try discovered APIs from database using ProviderManager
+    # 3. Try discovered APIs from database using ProviderManager
     print("🔍 No hardcoded providers available. Searching database for discovered APIs...")
     active_providers = manager.get_active_providers()
 
