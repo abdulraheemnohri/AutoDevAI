@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autodevai"
+version = "1.0.0"
+description = "Autonomous AI-powered GitHub Dev Assistant"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "requests",
+    "playwright",
+    "beautifulsoup4",
+    "aiohttp",
+    "sqlalchemy",
+    "python-dotenv"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["action*", "ai_engine*", "api_discovery*", "backend*", "browser_agent*", "code_analysis*", "database*", "github_bot*", "knowledge_engine*", "providers*", "search_engines*", "utils*"]
